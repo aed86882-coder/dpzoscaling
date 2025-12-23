@@ -82,7 +82,8 @@ class WMT19TranslationDataset(Dataset):
             train_examples = dataset.get("train", [])
             valid_examples = dataset.get("validation", [])
             
-            print(f"  Train examples: {len(train_examples) if hasattr(train_examples, '__len__') else 'streaming'}")
+            original_train_size = len(train_examples) if hasattr(train_examples, '__len__') else 'unknown'
+            print(f"  Train examples: {original_train_size}")
             print(f"  Validation examples: {len(valid_examples) if hasattr(valid_examples, '__len__') else 'streaming'}")
         except Exception as e:
             print(f"✗ Error accessing dataset splits: {e}")
@@ -107,24 +108,26 @@ class WMT19TranslationDataset(Dataset):
             }
             return
         
-        # Build samples (no need to swap - keys are fixed language codes)
+        # [Critical Fix] Downsample at HF Dataset level BEFORE loading to memory
+        # This prevents OOM when dealing with 25M+ samples but only need 10k-50k
+        if self.max_samples is not None:
+            if hasattr(train_examples, '__len__') and len(train_examples) > self.max_samples:
+                print(f"  ⚠ Downsampling training set from {len(train_examples)} to {self.max_samples} samples (Lazy Loading)...")
+                # Use HF's shuffle and select - this is fast and memory-efficient
+                train_examples = train_examples.shuffle(seed=42).select(range(self.max_samples))
+        
+        # Build samples (now train_examples is already downsampled if needed)
         print("  Building samples...")
         train_samples = []
         for idx, example in enumerate(train_examples):
-            sample = self.build_sample(example, idx, swapped=False)  # swapped no longer used for key swapping
+            sample = self.build_sample(example, idx, swapped=False)
             train_samples.append(sample)
         
+        # Validation set is usually small, can process directly
         valid_samples = []
         for idx, example in enumerate(valid_examples):
-            sample = self.build_sample(example, idx, swapped=False)  # swapped no longer used for key swapping
+            sample = self.build_sample(example, idx, swapped=False)
             valid_samples.append(sample)
-        
-        # Apply max_samples limit for scaling law experiments
-        if self.max_samples is not None and len(train_samples) > self.max_samples:
-            import random
-            random.seed(42)  # Fixed seed for reproducibility
-            train_samples = random.sample(train_samples, self.max_samples)
-            print(f"  ⚠ Downsampled training set from {len(train_examples)} to {self.max_samples} samples")
         
         self.samples = {"train": train_samples, "valid": valid_samples}
         

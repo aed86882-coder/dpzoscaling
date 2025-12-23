@@ -369,10 +369,12 @@ class Framework:
                         prediction = generated_text
                     
                     all_predictions.append(prediction)
-                    all_references.append([target_text])  # BLEU expects list of references
+                    # Append string directly, not wrapped in a list
+                    all_references.append(target_text)
             
             # Compute BLEU score
-            bleu_score = bleu.corpus_score(all_predictions, all_references).score
+            # Format: [[ref1, ref2, ref3, ...]] -> outer list is for reference versions (usually 1)
+            bleu_score = bleu.corpus_score(all_predictions, [all_references]).score
             
             logger.info(f"  Validation Loss: {avg_loss:.4f}, BLEU: {bleu_score:.2f}")
         except ImportError:
