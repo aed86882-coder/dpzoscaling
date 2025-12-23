@@ -32,20 +32,3 @@ MAX_SAMPLES=10000 \
 bash examples/parallel_distzo2_dp_aggzo_translation.sh
 
 ```
-
-
-
-## Parameter Description
-
-- **LR**: Learning Rate (default: 1e-5)
-- **BATCH_SIZE**: Batch size for training (default: 4)
-- **MAX_LENGTH**: Maximum sequence length (default: 256)
-- **DPZERO_PRIVACY_EPS** / **DP_EPS**: Differential Privacy epsilon (default: 2.0)
-- **DP_DELTA**: Differential Privacy delta (default: 1e-5)
-- **DPZERO_THRESHOLD** / **DP_CLIP**: Gradient clipping threshold (default: 7.5)
-- **DP_SAMPLE_RATE**: Poisson sampling rate (default: 0.064)
-- **STEP** / **STEPS**: Number of training steps (default: 1000)
-- **SEED**: Random seed for reproducibility (default: 0)
-- **NUM_DIRECTION** / **N**: Number of ZO directions (default: 16)
-- **RANDOM_DIRECTION_SEED**: Random seed for direction sampling (default: 42)
-- **MAX_SAMPLES**: Maximum number of training samples (default: all available, use for scaling law experiments)
