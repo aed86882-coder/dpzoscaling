@@ -107,16 +107,16 @@ class WMT19TranslationDataset(Dataset):
             }
             return
         
-        # Build samples, swapping source/target if needed
+        # Build samples (no need to swap - keys are fixed language codes)
         print("  Building samples...")
         train_samples = []
         for idx, example in enumerate(train_examples):
-            sample = self.build_sample(example, idx, swapped=swapped)
+            sample = self.build_sample(example, idx, swapped=False)  # swapped no longer used for key swapping
             train_samples.append(sample)
         
         valid_samples = []
         for idx, example in enumerate(valid_examples):
-            sample = self.build_sample(example, idx, swapped=swapped)
+            sample = self.build_sample(example, idx, swapped=False)  # swapped no longer used for key swapping
             valid_samples.append(sample)
         
         # Apply max_samples limit for scaling law experiments
@@ -138,29 +138,32 @@ class WMT19TranslationDataset(Dataset):
         Build a translation sample from WMT19 dataset
         
         WMT19 数据集格式:
-        - 'translation': dict with source_lang and target_lang keys
+        - 'translation': dict with fixed language keys (e.g., {'zh': '中文...', 'en': 'English...'})
+        
+        Important: The dictionary keys are fixed language codes, not dependent on which config
+        (zh-en or en-zh) was loaded. We directly use self.source_lang and self.target_lang to
+        extract the correct text, regardless of the swapped flag.
         
         Args:
-            swapped: If True, swap source and target (used when loading reversed language pair)
+            swapped: This parameter is kept for backward compatibility but is no longer used
+                     to swap dictionary keys, since keys are fixed language codes.
         """
         if isinstance(example, dict) and 'translation' in example:
             translation = example['translation']
-            if swapped:
-                # If we loaded reversed pair, swap the languages
-                source_text = translation.get(self.target_lang, "")
-                target_text = translation.get(self.source_lang, "")
-            else:
-                source_text = translation.get(self.source_lang, "")
-                target_text = translation.get(self.target_lang, "")
+            # Directly use source_lang and target_lang to get values
+            # translation['en'] is always English, translation['zh'] is always Chinese
+            # No need to swap keys because keys are fixed language codes
+            source_text = translation.get(self.source_lang, "")
+            target_text = translation.get(self.target_lang, "")
+        
+        # Handle potential alternative data formats (fallback)
         elif isinstance(example, dict) and self.source_lang in example:
-            if swapped:
-                source_text = example.get(self.target_lang, "")
-                target_text = example.get(self.source_lang, "")
-            else:
-                source_text = example.get(self.source_lang, "")
-                target_text = example.get(self.target_lang, "")
+            source_text = example.get(self.source_lang, "")
+            target_text = example.get(self.target_lang, "")
         else:
-            # Fallback: assume example is a dict with 'source' and 'target'
+            # Very rare case: data has 'source'/'target' fields instead of language keys
+            # Only in this case might swapped be useful, but WMT19 standard format doesn't need it
+            # Keep this fallback for safety
             if swapped:
                 source_text = example.get('target', str(example))
                 target_text = example.get('source', "")
