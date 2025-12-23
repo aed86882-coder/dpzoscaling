@@ -37,6 +37,7 @@ class OurArguments(TrainingArguments):
     num_train: int = 10000
     num_eval: int = 1000
     train_set_seed: int = 0
+    max_samples: int = None  # Max training samples (for scaling law experiments). If None, use all available.
     
     # Model
     model_name: str = "facebook/opt-125m"  # OPT model for translation
@@ -275,13 +276,115 @@ class Framework:
         return metrics if self.rank == 0 else None
     
     def evaluate(self, eval_samples):
-        """Evaluation (simplified - returns loss)"""
-        if self.rank == 0:
-            logger.info(f"Evaluating on {len(eval_samples)} samples")
+        """
+        Evaluation with real Loss and BLEU score
         
-        # For simplicity, return placeholder metrics
-        # Full BLEU evaluation would require generation
-        return {"loss": 2.5}  # Placeholder
+        Returns:
+            dict with 'loss' and 'bleu' keys
+        """
+        if self.rank != 0:
+            # Only rank 0 evaluates
+            return None
+        
+        logger.info(f"Evaluating on {len(eval_samples)} samples")
+        
+        # Set model to eval mode (no ZO perturbations)
+        self.model.eval()
+        
+        # Get device
+        device = f'cuda:{self.local_rank}' if torch.cuda.is_available() else 'cpu'
+        self.model.to(device)
+        
+        total_loss = 0.0
+        num_eval_samples = min(len(eval_samples), self.args.num_eval)
+        eval_samples_subset = eval_samples[:num_eval_samples]
+        
+        # Compute validation loss
+        with torch.no_grad():
+            loss_fct = nn.CrossEntropyLoss(ignore_index=-100)
+            
+            for sample in eval_samples_subset:
+                # Tokenize the sample
+                tokenized = self.tokenize_translation(
+                    sample.data["source"],
+                    sample.data["target"]
+                )
+                
+                input_ids = tokenized["input_ids"].unsqueeze(0).to(device)
+                labels = tokenized["labels"].unsqueeze(0).to(device)
+                
+                # Forward pass (no perturbation)
+                outputs = self.model(input_ids=input_ids, labels=labels)
+                loss = outputs.loss if hasattr(outputs, 'loss') and outputs.loss is not None else loss_fct(
+                    outputs.logits.view(-1, outputs.logits.size(-1)),
+                    labels.view(-1)
+                )
+                total_loss += loss.item()
+        
+        avg_loss = total_loss / num_eval_samples
+        
+        # Compute BLEU score (if sacrebleu is available)
+        bleu_score = None
+        try:
+            from sacrebleu import BLEU
+            bleu = BLEU()
+            
+            all_predictions = []
+            all_references = []
+            
+            with torch.no_grad():
+                for sample in eval_samples_subset:
+                    # Tokenize source text
+                    source_text = sample.data["source"]
+                    target_text = sample.data["target"]  # Reference
+                    
+                    # Format prompt
+                    prompt = f"Translate {self.args.source_lang} to {self.args.target_lang}: {source_text} ->"
+                    input_ids = self.tokenizer(
+                        prompt,
+                        max_length=self.args.max_length,
+                        truncation=True,
+                        return_tensors="pt"
+                    )["input_ids"].to(device)
+                    
+                    # Generate translation
+                    generated_ids = self.model.generate(
+                        input_ids,
+                        max_new_tokens=128,
+                        num_beams=4,
+                        early_stopping=True,
+                        do_sample=False
+                    )
+                    
+                    # Decode generated text
+                    generated_text = self.tokenizer.decode(
+                        generated_ids[0],
+                        skip_special_tokens=True
+                    )
+                    
+                    # Extract translation part (after "->")
+                    if "->" in generated_text:
+                        prediction = generated_text.split("->")[-1].strip()
+                    else:
+                        prediction = generated_text
+                    
+                    all_predictions.append(prediction)
+                    all_references.append([target_text])  # BLEU expects list of references
+            
+            # Compute BLEU score
+            bleu_score = bleu.corpus_score(all_predictions, all_references).score
+            
+            logger.info(f"  Validation Loss: {avg_loss:.4f}, BLEU: {bleu_score:.2f}")
+        except ImportError:
+            logger.warning("sacrebleu not available, skipping BLEU computation")
+        except Exception as e:
+            logger.warning(f"Error computing BLEU: {e}, returning loss only")
+        
+        metrics = {"loss": avg_loss}
+        if bleu_score is not None:
+            metrics["bleu"] = bleu_score
+        
+        return metrics
 
 
 def parse_args():

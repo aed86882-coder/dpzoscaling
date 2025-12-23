@@ -16,9 +16,19 @@ class WMT19TranslationDataset(Dataset):
     metric_name = "bleu"  # 翻译任务使用 BLEU 分数
     generation = True  # 生成式任务
     
-    def __init__(self, source_lang="en", target_lang="zh", **kwargs):
+    def __init__(self, source_lang="en", target_lang="zh", max_samples=None, **kwargs):
+        """
+        Initialize WMT19 Translation Dataset
+        
+        Args:
+            source_lang: Source language code (e.g., 'en')
+            target_lang: Target language code (e.g., 'zh')
+            max_samples: Maximum number of training samples to use (for scaling law experiments)
+                         If None, use all available samples
+        """
         self.source_lang = source_lang
         self.target_lang = target_lang
+        self.max_samples = max_samples
         self.load_dataset()
     
     def load_dataset(self):
@@ -108,6 +118,13 @@ class WMT19TranslationDataset(Dataset):
         for idx, example in enumerate(valid_examples):
             sample = self.build_sample(example, idx, swapped=swapped)
             valid_samples.append(sample)
+        
+        # Apply max_samples limit for scaling law experiments
+        if self.max_samples is not None and len(train_samples) > self.max_samples:
+            import random
+            random.seed(42)  # Fixed seed for reproducibility
+            train_samples = random.sample(train_samples, self.max_samples)
+            print(f"  ⚠ Downsampled training set from {len(train_examples)} to {self.max_samples} samples")
         
         self.samples = {"train": train_samples, "valid": valid_samples}
         

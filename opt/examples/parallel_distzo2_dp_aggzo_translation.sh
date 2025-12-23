@@ -90,6 +90,7 @@ if [ $NUM_GPUS -eq 1 ]; then
         --dp_delta 1e-5 \
         --dp_sample_rate $DP_SAMPLE_RATE \
         --max_length $MAX_LENGTH \
+        ${MAX_SAMPLES:+--max_samples $MAX_SAMPLES} \
         "$@"
 else
     echo "Running on $NUM_GPUS GPUs with DDP (torchrun)"
@@ -118,6 +119,7 @@ else
         --dp_delta 1e-5 \
         --dp_sample_rate $DP_SAMPLE_RATE \
         --max_length $MAX_LENGTH \
+        ${MAX_SAMPLES:+--max_samples $MAX_SAMPLES} \
         "$@"
 fi
 

@@ -29,7 +29,9 @@ def get_task(task_name):
         from .wmt19_translation import WMT19TranslationDataset
         source_lang = subtask.split("-")[0] if subtask and "-" in subtask else "en"
         target_lang = subtask.split("-")[1] if subtask and "-" in subtask else "zh"
-        instance = WMT19TranslationDataset(source_lang=source_lang, target_lang=target_lang)
+        # Extract max_samples from kwargs if provided
+        max_samples = kwargs.get('max_samples', None)
+        instance = WMT19TranslationDataset(source_lang=source_lang, target_lang=target_lang, max_samples=max_samples)
         return instance
     
     class_ = getattr(sys.modules[__name__], f"{task_group}Dataset")
