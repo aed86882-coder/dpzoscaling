@@ -40,7 +40,6 @@ def run_experiment(config):
     env['DP_CLIP'] = str(config.get('dp_clip', 7.5))
     env['DP_SAMPLE_RATE'] = str(config.get('dp_sample_rate', 0.064))
     env['MAX_LENGTH'] = str(config.get('max_length', 256))
-    env['BATCH_SIZE'] = str(config.get('batch_size', 4))
     
     # Learning rate scaling: lr = base_lr * sqrt(N)
     base_lr = config.get('base_lr', 1e-5)
@@ -95,7 +94,6 @@ def main():
         'dp_clip': 7.5,
         'dp_sample_rate': 0.064,
         'max_length': 256,
-        'batch_size': 4,
         'zo_eps': 1e-3,
         'base_lr': 1e-5,
         'seed': 0,

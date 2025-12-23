@@ -52,7 +52,6 @@ if [ -z "$NUM_DIRECTION" ]; then
     NUM_DIRECTION=$N
 fi
 RANDOM_DIRECTION_SEED=${RANDOM_DIRECTION_SEED:-42}  # For future use
-BATCH_SIZE=${BATCH_SIZE:-4}
 MAX_LENGTH=${MAX_LENGTH:-256}
 
 TAG=parallel-distzo2-dp-aggzo-translation-$STEPS-$N-$LR-$EPS-$SEED-$DP_EPS-$DP_CLIP
@@ -88,9 +87,9 @@ echo "  - Directions per GPU: ~$((N / NUM_GPUS))"
 echo ""
 echo "Training Parameters:"
 echo "  - Learning Rate: $LR"
-echo "  - Batch Size: $BATCH_SIZE"
 echo "  - Max Length: $MAX_LENGTH"
 echo "  - Max Samples: ${MAX_SAMPLES:-all}"
+echo "  - Note: Each training step processes 1 sample (hardcoded)"
 echo ""
 echo "Output: result/translation-$TAG"
 echo "============================================"
