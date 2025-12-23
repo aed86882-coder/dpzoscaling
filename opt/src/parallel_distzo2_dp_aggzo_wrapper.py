@@ -165,8 +165,8 @@ class ParallelDistZO2DPAggZOOPT(nn.Module):
                 logits1 = self.lm_head(x1)
                 logits2 = self.lm_head(x2)
             
-            # Compute losses
-            loss_fct = nn.CrossEntropyLoss()
+            # Compute losses (ignore -100 labels)
+            loss_fct = nn.CrossEntropyLoss(ignore_index=-100)
             vocab_size = logits1.size(-1)
             loss1 = loss_fct(logits1.view(-1, vocab_size), targets.view(-1))
             loss2 = loss_fct(logits2.view(-1, vocab_size), targets.view(-1))

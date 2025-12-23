@@ -23,6 +23,15 @@ def get_task(task_name):
     else:
         task_group = aa[0]
         subtask = None
+    
+    # Special handling for WMT19 translation task
+    if task_group == "WMT19" or task_group == "wmt19":
+        from .wmt19_translation import WMT19TranslationDataset
+        source_lang = subtask.split("-")[0] if subtask and "-" in subtask else "en"
+        target_lang = subtask.split("-")[1] if subtask and "-" in subtask else "zh"
+        instance = WMT19TranslationDataset(source_lang=source_lang, target_lang=target_lang)
+        return instance
+    
     class_ = getattr(sys.modules[__name__], f"{task_group}Dataset")
     instance = class_(subtask)
     return instance
