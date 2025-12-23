@@ -14,12 +14,44 @@ EPS=${EPS:-1e-3}
 SEED=${SEED:-0}
 NUM_TRAIN=${NUM_TRAIN:-10000}
 NUM_EVAL=${NUM_EVAL:-1000}
-STEPS=${STEPS:-1000}
+# Support both STEPS and STEP
+if [ -z "$STEPS" ] && [ -n "$STEP" ]; then
+    STEPS=$STEP
+elif [ -z "$STEPS" ]; then
+    STEPS=1000
+fi
+STEP=${STEPS}  # For backward compatibility
 EVAL_STEPS=${EVAL_STEPS:-100}
-DP_EPS=${DP_EPS:-2.0}
-DP_CLIP=${DP_CLIP:-7.5}
+# Support both DP_EPS and DPZERO_PRIVACY_EPS
+if [ -z "$DP_EPS" ] && [ -n "$DPZERO_PRIVACY_EPS" ]; then
+    DP_EPS=$DPZERO_PRIVACY_EPS
+elif [ -z "$DP_EPS" ]; then
+    DP_EPS=2.0
+fi
+if [ -z "$DPZERO_PRIVACY_EPS" ]; then
+    DPZERO_PRIVACY_EPS=$DP_EPS
+fi
+DP_DELTA=${DP_DELTA:-1e-5}
+# Support both DP_CLIP and DPZERO_THRESHOLD
+if [ -z "$DP_CLIP" ] && [ -n "$DPZERO_THRESHOLD" ]; then
+    DP_CLIP=$DPZERO_THRESHOLD
+elif [ -z "$DP_CLIP" ]; then
+    DP_CLIP=7.5
+fi
+if [ -z "$DPZERO_THRESHOLD" ]; then
+    DPZERO_THRESHOLD=$DP_CLIP
+fi
 DP_SAMPLE_RATE=${DP_SAMPLE_RATE:-0.064}
-N=${N:-16}
+# Support both N and NUM_DIRECTION
+if [ -z "$N" ] && [ -n "$NUM_DIRECTION" ]; then
+    N=$NUM_DIRECTION
+elif [ -z "$N" ]; then
+    N=16
+fi
+if [ -z "$NUM_DIRECTION" ]; then
+    NUM_DIRECTION=$N
+fi
+RANDOM_DIRECTION_SEED=${RANDOM_DIRECTION_SEED:-42}  # For future use
 BATCH_SIZE=${BATCH_SIZE:-4}
 MAX_LENGTH=${MAX_LENGTH:-256}
 
@@ -41,20 +73,24 @@ echo "Model: $MODEL"
 echo "Dataset: WMT19 $SOURCE_LANG-$TARGET_LANG"
 echo "Learning Rate: $LR"
 echo "ZO Eps: $EPS"
-echo "Training Steps: $STEPS"
+echo "Training Steps: $STEPS (STEP=$STEP)"
 echo "Eval Steps: $EVAL_STEPS"
 echo "Seed: $SEED"
+echo "Random Direction Seed: $RANDOM_DIRECTION_SEED"
 echo ""
 echo "DP Parameters:"
-echo "  - DP Epsilon: $DP_EPS"
-echo "  - DP Clip: $DP_CLIP"
+echo "  - DP Epsilon: $DP_EPS (DPZERO_PRIVACY_EPS=$DPZERO_PRIVACY_EPS)"
+echo "  - DP Delta: $DP_DELTA"
+echo "  - DP Clip: $DP_CLIP (DPZERO_THRESHOLD=$DPZERO_THRESHOLD)"
 echo "  - DP Sample Rate: $DP_SAMPLE_RATE"
-echo "  - Total Directions: $N"
+echo "  - Total Directions: $N (NUM_DIRECTION=$NUM_DIRECTION)"
 echo "  - Directions per GPU: ~$((N / NUM_GPUS))"
 echo ""
-echo "Memory Optimization:"
+echo "Training Parameters:"
+echo "  - Learning Rate: $LR"
 echo "  - Batch Size: $BATCH_SIZE"
 echo "  - Max Length: $MAX_LENGTH"
+echo "  - Max Samples: ${MAX_SAMPLES:-all}"
 echo ""
 echo "Output: result/translation-$TAG"
 echo "============================================"
@@ -87,7 +123,7 @@ if [ $NUM_GPUS -eq 1 ]; then
         --dpzero \
         --dpzero_clip_threshold $DP_CLIP \
         --dp_epsilon $DP_EPS \
-        --dp_delta 1e-5 \
+        --dp_delta $DP_DELTA \
         --dp_sample_rate $DP_SAMPLE_RATE \
         --max_length $MAX_LENGTH \
         ${MAX_SAMPLES:+--max_samples $MAX_SAMPLES} \
@@ -116,7 +152,7 @@ else
         --dpzero \
         --dpzero_clip_threshold $DP_CLIP \
         --dp_epsilon $DP_EPS \
-        --dp_delta 1e-5 \
+        --dp_delta $DP_DELTA \
         --dp_sample_rate $DP_SAMPLE_RATE \
         --max_length $MAX_LENGTH \
         ${MAX_SAMPLES:+--max_samples $MAX_SAMPLES} \
